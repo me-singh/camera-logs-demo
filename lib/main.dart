@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'web-storage-helper.dart';
@@ -77,7 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   connect () {
     var deviceId = "FAKE_DEVICE_ID";
-    channel = WebSocketChannel.connect(Uri(host: this.host));//, headers: { "device-id": deviceId }
+    channel = HtmlWebSocketChannel.connect(this.host);//, headers: { "device-id": deviceId }
     channel.stream.listen(onData, onError: onError, onDone: onDone);
     channel.sink.add(jsonEncode({
       'sessionId': '1',
