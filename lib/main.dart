@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'web-storage-helper.dart';
-
 
 
 void main() {
@@ -36,17 +34,24 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  List logs = ['kfam','faweas'];
-  String host = 'ws://' + '172.20.0.3:3000';
+  List logs = ['data1', 'data2'];
+  String host = 'ws://' + '192.168.1.217:80';
   WebSocketChannel channel;
-  int cnt = 1;
   LocalStorage storage;
 
   @override
   void initState() {
-    cnt = 1;
+    print('here');
     connect();
     storage = LocalStorage();
+    channel.sink.add(jsonEncode({
+      'sessionId': '1',
+      'type': 'events',
+      'data': {
+        'txn': 'start_events',
+        'camera_id': '123'
+      },
+    }));
     super.initState();
   }
 
@@ -72,8 +77,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
   connect () {
     var deviceId = "FAKE_DEVICE_ID";
-    channel = HtmlWebSocketChannel.connect(this.host);//, headers: { "device-id": deviceId }
+    channel = WebSocketChannel.connect(Uri(host: this.host));//, headers: { "device-id": deviceId }
     channel.stream.listen(onData, onError: onError, onDone: onDone);
+    channel.sink.add(jsonEncode({
+      'sessionId': '1',
+      'type': 'conn'
+    }));
   }
 
 
@@ -91,29 +100,25 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void onData(compressed) {
     print ('connection on data');
-/*
-    Map <String, Function> txnHandlers = {
-      'error': (data) => TxnError().handler(data),
-      'init': (data) => TxnInit().handler(data),
-      'reinit_ok': (data) => TxnReinitOk().handler(data),
-      'login_ok': (data) => TxnLoginOk.handler(data),
-    };
-*/
-    //List<int> buf = new ZLibDecoder().decodeBytes(compressed);
 
-    //String data = utf8.decode(buf);
-    //print ('server msg: ' + compressed);
     var obj = jsonDecode (compressed);
     print('DATA::' + obj.toString());
     storage.save((storage.getSize()+1).toString(), obj.toString());
     setState(() {
       logs.add(obj.toString());
     });
-//    Config.msgBloc.dispatch(ReceivedMsg(Msg.received(
-//      obj['id'],
-//      obj['timestamp'],
-//      obj['type'],
-//      obj['body']
-//    )));
+  }
+
+  @override
+  void dispose() {
+    channel.sink.add(jsonEncode({
+      'sessionId': '1',
+      'type': 'send_events',
+      'data': {
+        'txn': 'stop_events',
+        'camera_id': '123'
+      },
+    }));
+    super.dispose();
   }
 }
