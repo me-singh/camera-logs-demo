@@ -4,6 +4,9 @@ import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'web-storage-helper.dart';
+import 'dart:io';
+import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
 
 void main() {
@@ -35,7 +38,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  List logs = ['data1', 'data2'];
+  List logs = [];
   String host = 'ws://' + '192.168.1.217:80';
   WebSocketChannel channel;
   LocalStorage storage;
@@ -66,15 +69,18 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         child: ListView(
           padding: EdgeInsets.all(8),
-          children: logs.reversed.map((val) => Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text('${logs.indexOf(val)+1}:   $val', style: TextStyle(fontSize: 20),),
-          )).toList(),
+          children: logs.reversed.map((val) {
+            DateTime attTime = DateTime.parse(val['timestamp']);
+            attTime = attTime.toLocal();
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text('${logs.indexOf(val)+1}:   ${val['name']} , Timestamp: ${attTime.toString()}', style: TextStyle(fontSize: 20),),
+            );
+          }).toList(),
         ),
       ),
     );
   }
-
 
   connect () {
     var deviceId = "FAKE_DEVICE_ID";
@@ -99,14 +105,19 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
 
-  void onData(compressed) {
+  onData(compressed) {
     print ('connection on data');
+    var buf = new ZLibDecoder().decodeBytes(compressed);
+    String data = utf8.decode(buf);
+    print ('server msg: ' + data);
 
-    var obj = jsonDecode (compressed);
+    var obj = jsonDecode (data);
     print('DATA::' + obj.toString());
     storage.save((storage.getSize()+1).toString(), obj.toString());
     setState(() {
-      logs.add(obj.toString());
+      if(obj['txn'] == 'events') {
+        logs.add(obj['data']);
+      }
     });
   }
 
@@ -114,12 +125,13 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     channel.sink.add(jsonEncode({
       'sessionId': '1',
-      'type': 'send_events',
+      'type': 'events',
       'data': {
         'txn': 'stop_events',
         'camera_id': '123'
       },
     }));
+    print('dispose called');
     super.dispose();
   }
 }
